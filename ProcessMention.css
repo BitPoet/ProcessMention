@@ -1,0 +1,26 @@
+
+ul.pwmentions {
+	z-index:			999;
+	border:				1px solid grey;
+	border-radius:		0.2;
+	background-color:	white;
+	position:			absolute;
+	display:			block;
+	margin:				0.2em;
+}
+
+ul.pwmentions > li {
+	cursor:				pointer;
+	padding:			0.5em;
+	list-style-type:	none;
+	font-size:			1.2em;
+	color:				rgb(0, 10, 45);
+}
+
+ul.pwmentions > li:hover {
+	background-color:	rgb(220,220,255);
+}
+
+ul.pwmentions > li[data-selected] {
+	font-weight:		bold;
+}

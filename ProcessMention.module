@@ -1,0 +1,204 @@
+<?php
+
+/**
+ * ProcessWire module that adds inline autocomplete for page links to CKEditor.
+ *
+ * Most settings are configurable in the module's configuration settings.
+ *
+ * Styles can be adapted in ProcessMention.css in the module directory.
+ *
+ * Note that you need to manually add the CKEditor plugin itself.
+ * Copy plugin.js to site/modules/InputfieldCKEditor/plugins/pwmentions
+ * Create directories where necessary
+ * Then configure your CKEditor fields and check pwmentions where you
+ * want it active.
+ *
+ * ToDo:
+ * Fix positioning of selection list in plugin.js
+ * Make settings configurable in template context
+ *
+ *
+ * Author: BitPoet
+ * 
+ * License:
+ * Released under Mozilla Public License 2.0
+ *
+ */
+
+class ProcessMention extends Process implements ConfigurableModule {
+	
+	public static function getModuleInfo() {
+		return array(
+			"title"			=>	"Mention Addon for CKEditor",
+			"summary"		=>	"Allow quick linking to pages by typing an at sign and using type ahead inside CKEditor",
+			"version"		=>	"0.0.28",
+			"autoload"		=>	"template=admin"
+		);
+	}
+	
+	public function __construct() {
+		$this->set("tplLink", "<a href=\"{url}\" data-pageid=\"{id}\">@{title}</a>");
+		$this->set("tplResult", "<li title='{url}'>{title}</li>");
+		$this->set("filterField", "title");
+		$this->set("columns", "id, title, url");
+		$this->set("operator", "%=");
+		$this->set("limit", 30);
+		$this->set("addSelector", 'template!=admin, template!=permission');
+	}
+	
+	/**
+	 * Initialization
+	 */
+	public function init() {
+		$this->config->js("mentions", [
+			"url"		=>		$this->pages->get("template=admin, name=mention")->url,
+			"columns"	=>		preg_split('/\s*,\s*/', $this->columns, -1, \PREG_SPLIT_NO_EMPTY),
+			"tplResult"	=>		$this->tplResult,
+			"tplLink"	=>		$this->tplLink
+		]);
+		
+		$class = $this->modules->getModuleClass($this);
+		$url   = $this->config->urls->$class;
+		$path  = $this->config->paths->$class;
+		$name  = $class . ".css";
+		$ts    = filemtime($path . $name);
+		$this->config->styles->add($url . $name . "?v=" . $ts);
+		
+		parent::init();
+	}
+	
+	/**
+	 * Filter pages by the value supplied in $_POST["filter"]
+	 */
+	public function ___execute() {
+
+		header('Content-Type: application/json');
+		
+		$ret = [];
+		
+		$filter = $this->sanitizer->selectorValue($this->input->post->filter);
+		if($filter) {
+			$ps = $this->pages->find($this->filterField . $this->operator . $filter . ($this->addSelector ? ', '. $this->addSelector : '') . ', limit=' . $this->limit);
+			foreach($ps as $p) {
+				$p->of(true);
+				$row = [];
+				foreach(preg_split('/\s*,\s*/', $this->columns, -1, \PREG_SPLIT_NO_EMPTY) as $fld) {
+					$row[$fld] = $p->$fld ?: '';
+				}
+				$ret[] = $row;
+			}
+		}
+		
+		echo json_encode($ret, \JSON_PRETTY_PRINT);
+	}
+	
+	/**
+	 * Installing module. Adds a page in admin that filters pages for autocomplete in CKEditor
+	 */
+	public function install() {
+		
+		$admin = $this->pages->get($this->config->adminRootPageID);
+		
+		if($admin->child("name=mention") instanceof NullPage) {
+			$mention = new Page();
+			$mention->template = "admin";
+			$mention->name = "mention";
+			$mention->parent = $admin;
+			$mention->process = $this->className();
+			$mention->title = "Mention Autocomplete";
+			$mention->addStatus(Page::statusHidden);
+			$mention->removeStatus(Page::statusUnpublished);
+			$mention->save();
+		}
+		
+	}
+	
+	/**
+	 * Uninstalling module. Removes admin page.
+	 */
+	public function uninstall() {
+		
+		$admin = $this->pages->get($this->config->adminRootPageID);
+		
+		$mention = $admin->child("name=mention");
+		
+		if(! $mention instanceof NullPage) {
+			$mention->delete(true);
+			$this->session->message("mention page deleted");
+		} else {
+			$this->session->message("No mention page to delete");
+		}
+		
+	}
+	
+	/**
+	 * Get module configuration fields
+	 */
+	public function getModuleConfigInputfields($data) {
+		$inputfields = new InputfieldWrapper();
+		
+		$f = $this->modules->get("InputfieldMarkup");
+		$f->label = $this->_("Notice");
+		$f->attr('value', $this->_("For mentions to start working, copy the plugin.js in this directory to site/modules/InputfieldCKEditor/plugins/mentions, then edit the CKEditor fields and enable the mentions plugin."));
+		
+		$f = $this->modules->get("InputfieldText");
+		$f->attr('name', 'filterField');
+		$f->attr('value', $this->filterField);
+		$f->attr('size', 30);
+		$f->label = $this->_("Filter field");
+		$f->description = $this->_("Name of the field to search. Defaults to title.");
+		$inputfields->add($f);
+		
+		$f = $this->modules->get("InputfieldText");
+		$f->attr('name', 'columns');
+		$f->attr('value', $this->columns);
+		$f->attr('size', 100);
+		$f->label = $this->_("Returned fields");
+		$f->description = $this->_("Page fields to return to the CKEditor plugin to use in building the link. Defaults to id, url, title.");
+		$inputfields->add($f);
+		
+		$f = $this->modules->get("InputfieldText");
+		$f->attr('name', 'tplResult');
+		$f->attr('value', $this->tplResult);
+		$f->attr('size', 100);
+		$f->label = $this->_("Result template");
+		$f->description = $this->_("Template for rendering the result in the select dropdown.");
+		$inputfields->add($f);
+		
+		$f = $this->modules->get("InputfieldText");
+		$f->attr('name', 'tplLink');
+		$f->attr('value', $this->tplLink);
+		$f->attr('size', 100);
+		$f->label = $this->_("Link template");
+		$f->description = $this->_("Template for the inserted link. Defaults to '<a href=\"{url}\" data-pageid=\"{id}\">@{title}</a>'");
+		$inputfields->add($f);
+		
+		$f = $this->modules->get("InputfieldSelect");
+		$f->attr('name', 'operator');
+		$f->attr('value', $this->operator);
+		$f->label = $this->_("Selector operator");
+		$f->description = $this->_("Selector operator to use in searches. Defaults to '%='");
+		foreach(["%=", "^=", "*="] as $op) {
+			$f->addOption($op, $op);
+		}
+		$inputfields->add($f);
+		
+		$f = $this->modules->get("InputfieldText");
+		$f->attr('name', 'addSelector');
+		$f->attr('value', $this->addSelector);
+		$f->attr('size', 100);
+		$f->label = $this->_("Additional selector");
+		$f->description = $this->_("Add (or remote) additional selectors here to limit results, e.g. 'template=blog-post' if you only want blog postings to be returned. Defaults to 'template!=admin, template!=permisson' to exclude admin stuff.");
+		$inputfields->add($f);
+		
+		$f = $this->modules->get("InputfieldText");
+		$f->attr('name', 'limit');
+		$f->attr('value', $this->limit);
+		$f->attr('size', 5);
+		$f->label = $this->_("Result limit");
+		$f->description = $this->_("Return at most this many results at once. Default is 30.");
+		$inputfields->add($f);
+
+		return $inputfields;
+	}
+}
