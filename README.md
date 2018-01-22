@@ -8,7 +8,7 @@ Alpha - needs extensive testing
 Currently tested with PW3 and PW2.8
 
 ## ToDo
-* Make settings configurable in module context
+* Make things look nicer and add documentation
 
 ## Installation
 * Extract the module's zip file to site/modules (download zip from github through [this link](https://github.com/BitPoet/ProcessMention/archive/master.zip))
