@@ -30,8 +30,12 @@ class ProcessMention extends Process implements ConfigurableModule {
 		return array(
 			"title"			=>	"Mention Addon for CKEditor",
 			"summary"		=>	"Allow quick linking to pages by typing an at sign and using type ahead inside CKEditor",
-			"version"		=>	"0.0.66",
-			"autoload"		=>	"template=admin"
+			"version"		=>	"0.0.67",
+			"autoload"		=>	"template=admin",
+			"page"			=>	[
+				"name"			=>	"mention",
+				"title"			=>	"Mention Autocomplete"
+			]
 		);
 	}
 	
@@ -67,6 +71,10 @@ class ProcessMention extends Process implements ConfigurableModule {
 	 * Filter pages by the value supplied in $_POST["filter"]
 	 */
 	public function ___execute() {
+
+		if(! $this->config->isAjax) {
+			return "<p>" . $this->_("This page acts as an AJAX interface for the Mention Autocomplete module") . "</p>";
+		}
 
 		header('Content-Type: application/json');
 		
@@ -152,45 +160,6 @@ class ProcessMention extends Process implements ConfigurableModule {
 		$outer->append($wrapper);
 		
 		$event->return = $outer;
-	}
-	
-	/**
-	 * Installing module. Adds a page in admin that filters pages for autocomplete in CKEditor
-	 */
-	public function install() {
-		
-		$admin = $this->pages->get($this->config->adminRootPageID);
-		
-		if($admin->child("name=mention") instanceof NullPage) {
-			$mention = new Page();
-			$mention->template = "admin";
-			$mention->name = "mention";
-			$mention->parent = $admin;
-			$mention->process = $this->className();
-			$mention->title = "Mention Autocomplete";
-			$mention->addStatus(Page::statusHidden);
-			$mention->removeStatus(Page::statusUnpublished);
-			$mention->save();
-		}
-		
-	}
-	
-	/**
-	 * Uninstalling module. Removes admin page.
-	 */
-	public function uninstall() {
-		
-		$admin = $this->pages->get($this->config->adminRootPageID);
-		
-		$mention = $admin->child("name=mention");
-		
-		if(! $mention instanceof NullPage) {
-			$mention->delete(true);
-			$this->session->message("mention page deleted");
-		} else {
-			$this->session->message("No mention page to delete");
-		}
-		
 	}
 	
 	/**
