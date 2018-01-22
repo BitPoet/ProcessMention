@@ -7,13 +7,13 @@ ul.pwmentions {
 	position:			absolute;
 	display:			block;
 	margin:				0.2em;
+	padding-left:		0;
 }
 
 ul.pwmentions > li {
 	cursor:				pointer;
 	padding:			0.5em;
 	list-style-type:	none;
-	font-size:			1.2em;
 	color:				rgb(0, 10, 45);
 }
 
@@ -24,3 +24,9 @@ ul.pwmentions > li:hover {
 ul.pwmentions > li[data-selected] {
 	font-weight:		bold;
 }
+
+/* Placeholder for your conveniene or as an example */
+li.pwmentions-entry {
+	
+}
+

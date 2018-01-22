@@ -2,17 +2,16 @@
 ProcessWire module - "forum mention" style autocomplete for page links inside CKEditor
 
 ## Status
-Alpha - positioning of the selection list is way off
+Alpha - needs extensive testing
 
 ## Compatibility
 Currently tested with PW3 and PW2.8
 
 ## ToDo
-* Fix positioning of selection list in plugin.js
 * Make settings configurable in module context
 
 ## Installation
-* Extract the module's zip file to site/modules
+* Extract the module's zip file to site/modules (download zip from github through [this link](https://github.com/BitPoet/ProcessMention/archive/master.zip))
 * Create the directory site/modules/InputfieldCKEditor/plugins/pwmentions
 * Copy plugin.js from the module folder to the newly created directory
 * Go to the admin and run Modules -> Refresh, then install "Mention Addon for CKEditor"

@@ -107,18 +107,40 @@ CKEDITOR.plugins.pwmentions = function(editor) {
     	
     	if(rng && rng.getNextEditableNode() && rng.getNextEditableNode().getSize("height")) {
     		
-    		$(this.results).position({
-			    my:        "left top",
-			    at:        "left bottom",
-			    of:        $(this.cur.$), // or $("#otherdiv")
-			    collision: "fit"
-			});
-			
+    		var pos = this.getAbsolutePosition(this.cur.$);
+    		
+    		$(this.results).css({
+    			left:			'' + (pos.left - 10) + 'px',
+    			top:			'' + (pos.top + rng.getNextEditableNode().getSize("height") + 5) + 'px'
+    		});
+    		
     	}
     	
     	return;
     };
     
+    // Since CKEditor uses an iframe, regular offset/position methods to
+    // determine the position for the dropdown don't work. We need to
+    // add the iframe's offset in that case.
+	this.getAbsolutePosition = function(target) {
+
+	    var target_body = $(target).parents('body');
+	    if ($('body').get(0) === target_body.get(0)) {
+	        return target.offset();
+	    }
+	    
+	    // find the corresponding iframe container                                 
+	    var iframe = $('iframe').filter(function() {
+	        var iframe_body = $(this).contents().find('body');
+	        return target_body.get(0) === iframe_body.get(0);
+	    });
+	    
+	    var left = $(iframe).offset().left + $(target).offset().left;
+	    var top = $(iframe).offset().top + $(target).offset().top;
+
+		return {left: left, top: top};
+	}
+	
     // Keyboard control for selection list
     this.listenInsideEvent = function(a) {
     	
