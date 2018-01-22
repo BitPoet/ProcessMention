@@ -30,11 +30,12 @@ class ProcessMention extends Process implements ConfigurableModule {
 		return array(
 			"title"			=>	"Mention Addon for CKEditor",
 			"summary"		=>	"Allow quick linking to pages by typing an at sign and using type ahead inside CKEditor",
-			"version"		=>	"0.0.67",
+			"version"		=>	"0.0.68",
 			"autoload"		=>	"template=admin",
 			"page"			=>	[
 				"name"			=>	"mention",
-				"title"			=>	"Mention Autocomplete"
+				"title"			=>	"Mention Autocomplete",
+				"status"		=>	"hidden"
 			]
 		);
 	}
