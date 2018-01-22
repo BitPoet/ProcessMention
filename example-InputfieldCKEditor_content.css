@@ -1,0 +1,19 @@
+/**
+ *
+ * If you want to hightlight the inserted links, define a format
+ * in a custom css file. See
+ * https://github.com/ryancramerdesign/ProcessWire/blob/dev/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-css-file
+ * for a description on how to add/configure that style.
+ *
+ * Then make sure to incorporate this class in the Link template field
+ * in the field's Mention Settings.
+ *
+ */
+
+a.mentioned {
+	color:				white;
+	background-color:	darkblue;
+	border-radius:		2px;
+	padding:			3px;
+	text-decoration:	none;
+}
