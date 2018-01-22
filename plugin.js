@@ -1,10 +1,12 @@
 CKEDITOR.plugins.add("pwmentions", {
     init: function(editor) {
-        new CKEDITOR.plugins.pwmentions(editor)
+        new CKEDITOR.plugins.pwmentions(editor);
     }
 });
 
 CKEDITOR.plugins.pwmentions = function(editor) {
+
+	this.mention = editor.config.mention;
 	
 	this.cur = null;
 	this.listenInside = null;
@@ -226,9 +228,10 @@ CKEDITOR.plugins.pwmentions = function(editor) {
 		                var thisObj = this;
 
 		                this.ajaxObj = $.post(
-	                		ProcessWire.config.mentions.url,
+	                		this.mention.url,
 	                		{
-	                			filter:			encodeURIComponent(e)
+	                			filter:			e,
+	                			field:			this.mention.field
 	                		},
 							function(data) {
 	                			if(data) {
@@ -239,8 +242,8 @@ CKEDITOR.plugins.pwmentions = function(editor) {
 	                				for(var i = 0, l = data.length; i < l; i++) {
 	                					var row = data[i];
 	                					
-	                					var resTpl = '' + ProcessWire.config.mentions.tplResult;
-	                					var cols = ProcessWire.config.mentions.columns;
+	                					var resTpl = '' + thisObj.mention.tplResult;
+	                					var cols = thisObj.mention.columns;
 	                					
 	                					for(var cl = cols.length, j = 0; j < cl; j++) {
 	                						var re = new RegExp('\\{' + cols[j] + '\\}', 'g');
@@ -294,7 +297,7 @@ CKEDITOR.plugins.pwmentions = function(editor) {
     	
         a = $(a.currentTarget);
         
-        var newTpl = ProcessWire.config.mentions.tplLink;
+        var newTpl = this.mention.tplLink;
 
         newTpl = newTpl.replace(/\{([^}]+)}/g, function(allmatch, capture) {
         	return a.attr('data-' + capture);

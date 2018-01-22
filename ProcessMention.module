@@ -30,31 +30,25 @@ class ProcessMention extends Process implements ConfigurableModule {
 		return array(
 			"title"			=>	"Mention Addon for CKEditor",
 			"summary"		=>	"Allow quick linking to pages by typing an at sign and using type ahead inside CKEditor",
-			"version"		=>	"0.0.30",
+			"version"		=>	"0.0.66",
 			"autoload"		=>	"template=admin"
 		);
 	}
 	
 	public function __construct() {
-		$this->set("tplLink", "<a href=\"{url}\" data-pageid=\"{id}\">@{title}</a>");
-		$this->set("tplResult", "<li class='pwmentions-entry title='{url}'>{title}</li>");
-		$this->set("filterField", "title");
-		$this->set("columns", "id, title, url");
-		$this->set("operator", "%=");
-		$this->set("limit", 30);
-		$this->set("addSelector", 'template!=admin|language|permission|role');
+		$this->set("pwm_tplLink", "<a href=\"{url}\" data-pageid=\"{id}\">@{title}</a>");
+		$this->set("pwm_tplResult", "<li class='pwmentions-entry title='{url}'>{title}</li>");
+		$this->set("pwm_filterField", "title");
+		$this->set("pwm_columns", "id, title, url");
+		$this->set("pwm_operator", "%=");
+		$this->set("pwm_limit", 30);
+		$this->set("pwm_addSelector", 'template!=admin|language|permission|role');
 	}
 	
 	/**
 	 * Initialization
 	 */
 	public function init() {
-		$this->config->js("mentions", [
-			"url"		=>		$this->pages->get("template=admin, name=mention")->url,
-			"columns"	=>		preg_split('/\s*,\s*/', $this->columns, -1, \PREG_SPLIT_NO_EMPTY),
-			"tplResult"	=>		$this->tplResult,
-			"tplLink"	=>		$this->tplLink
-		]);
 		
 		$class = $this->modules->getModuleClass($this);
 		$url   = $this->config->urls->$class;
@@ -64,6 +58,9 @@ class ProcessMention extends Process implements ConfigurableModule {
 		$this->config->styles->add($url . $name . "?v=" . $ts);
 		
 		parent::init();
+		
+		$this->addHookAfter("InputfieldCKEditor::getConfigInputfields", $this, "addEditorConfig");
+		$this->addHookAfter("InputfieldCKEditor::renderReadyHook", $this, "injectSettings");
 	}
 	
 	/**
@@ -76,12 +73,24 @@ class ProcessMention extends Process implements ConfigurableModule {
 		$ret = [];
 		
 		$filter = $this->sanitizer->selectorValue($this->input->post->filter);
-		if($filter) {
-			$ps = $this->pages->find($this->filterField . $this->operator . $filter . ($this->addSelector ? ', '. $this->addSelector : '') . ', limit=' . $this->limit);
+		$field = $this->fields->get($this->sanitizer->name($this->input->post->field));
+
+		if($filter && $field) {
+			
+			$addSel = $field->pwm_addSelector ?: $this->pwm_addSelector;
+			
+			$ps = $this->pages->find(
+				($field->pwm_filterField ?: $this->pwm_filterField) .
+				($field->pwm_operator ?: $this->pwm_operator) .
+				$filter . 
+				($addSel ? ', '. $addSel : '') . 
+				', limit=' . ($field->pwm_limit ?: $this->pwm_limit)
+			);
+			
 			foreach($ps as $p) {
 				$p->of(true);
 				$row = [];
-				foreach(preg_split('/\s*,\s*/', $this->columns, -1, \PREG_SPLIT_NO_EMPTY) as $fld) {
+				foreach(preg_split('/\s*,\s*/', ($field->pwm_columns ?: $this->pwm_columns), -1, \PREG_SPLIT_NO_EMPTY) as $fld) {
 					$row[$fld] = $p->$fld ?: '';
 				}
 				$ret[] = $row;
@@ -89,6 +98,60 @@ class ProcessMention extends Process implements ConfigurableModule {
 		}
 		
 		echo json_encode($ret, \JSON_PRETTY_PRINT);
+	}
+	
+	/* Inject editor settings */
+	public function injectSettings(HookEvent $event) {
+		$editor = $event->object;
+		
+		$fname = $editor->attr('name');
+		$field = $this->fields->get($fname);
+
+		$conf = [
+			"url"		=>		$this->pages->get("template=admin, name=mention")->url,
+			"columns"	=>		preg_split('/\s*,\s*/', ($field->pwm_columns ?: $this->pwm_columns), -1, \PREG_SPLIT_NO_EMPTY),
+			"tplResult"	=>		$field->pwm_tplResult ?: $this->pwm_tplResult,
+			"tplLink"	=>		$field->pwm_tplLink ?: $this->pwm_tplLink,
+			"field"		=>		$field->name
+		];
+		
+		$cfgName = $editor->className() . '_' . $editor->name;
+		if(strpos($cfgName, '_repeater')) $cfgName = preg_replace('/_repeater\d+/', '', $cfgName);
+		
+		$config = $this->config->js($cfgName);
+		
+		$config["mention"] = $conf;
+		
+		$this->config->js($cfgName, $config);
+	}
+	
+	
+	/* Add own configuration fields to CKEditor input config */
+	public function addEditorConfig(HookEvent $event) {
+		$editor = $event->object;
+		
+		$outer = $event->return;
+		
+		$if = $this->getModuleConfigInputfields(array());
+		
+		$wrapper = $this->wire('modules')->get('InputfieldFieldset'); 
+		$wrapper->label = $this->_('Mention Settings'); 
+		$wrapper->showIf = "extraPlugins=pwmentions";
+		
+		$fname = $editor->attr('name');
+		$field = $this->fields->get($fname);
+		
+		foreach($if->children as $child) {
+			if($child instanceof InputfieldMarkup) continue;
+			$if->remove($child);
+			$name = $child->attr('name');
+			$child->attr('value', $field->$name ?: $this->$name);
+			$wrapper->add($child);
+		}
+		
+		$outer->append($wrapper);
+		
+		$event->return = $outer;
 	}
 	
 	/**
@@ -141,40 +204,40 @@ class ProcessMention extends Process implements ConfigurableModule {
 		$f->attr('value', $this->_("For mentions to start working, copy the plugin.js in this directory to site/modules/InputfieldCKEditor/plugins/mentions, then edit the CKEditor fields and enable the mentions plugin."));
 		
 		$f = $this->modules->get("InputfieldText");
-		$f->attr('name', 'filterField');
-		$f->attr('value', $this->filterField);
+		$f->attr('name', 'pwm_filterField');
+		$f->attr('value', $this->pwm_filterField);
 		$f->attr('size', 30);
 		$f->label = $this->_("Filter field");
 		$f->description = $this->_("Name of the field to search. Defaults to title.");
 		$inputfields->add($f);
 		
 		$f = $this->modules->get("InputfieldText");
-		$f->attr('name', 'columns');
-		$f->attr('value', $this->columns);
+		$f->attr('name', 'pwm_columns');
+		$f->attr('value', $this->pwm_columns);
 		$f->attr('size', 100);
 		$f->label = $this->_("Returned fields");
 		$f->description = $this->_("Page fields to return to the CKEditor plugin to use in building the link. Defaults to id, url, title.");
 		$inputfields->add($f);
 		
 		$f = $this->modules->get("InputfieldText");
-		$f->attr('name', 'tplResult');
-		$f->attr('value', $this->tplResult);
+		$f->attr('name', 'pwm_tplResult');
+		$f->attr('value', $this->pwm_tplResult);
 		$f->attr('size', 100);
 		$f->label = $this->_("Result template");
 		$f->description = $this->_("Template for rendering the result in the select dropdown.");
 		$inputfields->add($f);
 		
 		$f = $this->modules->get("InputfieldText");
-		$f->attr('name', 'tplLink');
-		$f->attr('value', $this->tplLink);
+		$f->attr('name', 'pwm_tplLink');
+		$f->attr('value', $this->pwm_tplLink);
 		$f->attr('size', 100);
 		$f->label = $this->_("Link template");
 		$f->description = $this->_("Template for the inserted link. Defaults to '<a href=\"{url}\" data-pageid=\"{id}\">@{title}</a>'");
 		$inputfields->add($f);
 		
 		$f = $this->modules->get("InputfieldSelect");
-		$f->attr('name', 'operator');
-		$f->attr('value', $this->operator);
+		$f->attr('name', 'pwm_operator');
+		$f->attr('value', $this->pwm_operator);
 		$f->label = $this->_("Selector operator");
 		$f->description = $this->_("Selector operator to use in searches. Defaults to '%='");
 		foreach(["%=", "^=", "*="] as $op) {
@@ -183,16 +246,16 @@ class ProcessMention extends Process implements ConfigurableModule {
 		$inputfields->add($f);
 		
 		$f = $this->modules->get("InputfieldText");
-		$f->attr('name', 'addSelector');
-		$f->attr('value', $this->addSelector);
+		$f->attr('name', 'pwm_addSelector');
+		$f->attr('value', $this->pwm_addSelector);
 		$f->attr('size', 100);
 		$f->label = $this->_("Additional selector");
 		$f->description = $this->_("Add (or remote) additional selectors here to limit results, e.g. 'template=blog-post' if you only want blog postings to be returned. Defaults to 'template!=admin|language|permission|role' to exclude admin stuff.");
 		$inputfields->add($f);
 		
 		$f = $this->modules->get("InputfieldText");
-		$f->attr('name', 'limit');
-		$f->attr('value', $this->limit);
+		$f->attr('name', 'pwm_limit');
+		$f->attr('value', $this->pwm_limit);
 		$f->attr('size', 5);
 		$f->label = $this->_("Result limit");
 		$f->description = $this->_("Return at most this many results at once. Default is 30.");
