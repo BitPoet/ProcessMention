@@ -1,13 +1,33 @@
 
 ul.pwmentions {
+	display:			inline-block;
 	z-index:			999;
+	margin-top:			15px;
 	border:				1px solid grey;
 	border-radius:		0.2;
 	background-color:	white;
 	position:			absolute;
-	display:			block;
+	width:				auto;
 	margin:				0.2em;
-	padding-left:		0;
+	padding:			0.2em;
+	list-style-type:	none;
+	min-width:			80px;
+	min-height:			40px;
+}
+
+ul.pwmentions:before {
+	content:			"";
+	position:			absolute;
+	top:				0;
+	left:				20px;
+	height:				20px;
+	width:				20px;
+	background:			white;
+	box-sizing:			border-box;
+	transform:			rotate(-135deg) translate(70%);
+	border-bottom:		inherit;
+	border-right:		inherit;
+	box-shadow:			inherit;
 }
 
 ul.pwmentions > li {
